@@ -1,0 +1,9 @@
+{
+    "[html]": {
+        // "editor.formatOnSave": false
+    },
+    "[javascript]": {
+        // "editor.formatOnSave": false
+    },
+    "editor.rulers": [120]
+}
