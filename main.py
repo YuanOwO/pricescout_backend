@@ -4,13 +4,19 @@ import json
 from typing import List, Optional
 
 import uvicorn
-from fastapi import FastAPI, Query
+from fastapi import APIRouter, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from database import Product, create_session
 
-app = FastAPI(root_path="/api/v1")
+app = FastAPI(
+    title="PriceScout API",
+    summary="超市商品比價網 後端資料庫 API",
+    version="1.0"
+)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,9 +26,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+api = APIRouter()
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return FileResponse("static/index.html")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico():
+    return FileResponse("static/favicon.png")
+
+
+@app.get("/favicon.png", include_in_schema=False)
+async def favicon_png():
+    return FileResponse("static/favicon.png")
+
+########################################################################
+
 
 class HelloWorld(BaseModel):
     message: str = "Hello World"
+
+
+@api.get("/", summary="Hello World (API 根目錄)", response_model=HelloWorld)
+async def helloworld():
+    """
+    這個是 API 的根目錄  
+    用來測試 API 是否正常運作
+    """
+    return {"message": "Hello World"}
+
+
+########################################################################
 
 
 class Category(BaseModel):
@@ -30,39 +67,7 @@ class Category(BaseModel):
     children: List[Category] = []
 
 
-class ProductModel(BaseModel):
-    pid: int
-    pno: Optional[str]
-    barcode: Optional[str]
-    name: str
-    price: int
-    spec: float
-    unit: str
-    price_unit: float
-    channel: str
-    category1: str
-    category2: str
-    category3: str
-    url: str
-    pic_url: str
-
-
-class ProductResponse(BaseModel):
-    total_count: int
-    page: int
-    limit: int
-    products: List[ProductModel]
-
-
-@app.get("/", summary="Hello World", response_model=HelloWorld)
-async def root():
-    """
-    測試 API 是否正常運作
-    """
-    return {"message": "Hello World"}
-
-
-@app.get("/category", summary="所有商品分類")
+@api.get("/category", tags=["商品分類"], summary="所有商品分類")
 async def category():
     """
     取得所有商品分類
@@ -73,14 +78,16 @@ async def category():
     return cats
 
 
-@app.get("/subcategory", summary="取得該商品分類的子分類", response_model=List[str])
+@api.get("/subcategory", tags=["商品分類"], summary="取得商品子分類", response_model=List[str])
 async def subcategory(
     category1: Optional[str] = Query(None, description="指定商品的第一層分類"),
     category2: Optional[str] = Query(None, description="指定商品的第二層分類"),
     category3: Optional[str] = Query(None, description="指定商品的第三層分類"),
 ):
     """
-    取得該商品分類的子分類
+    根據指定的商品分類，回傳他的下一層子分類有哪些。  
+    若沒有指定分類，則回傳所有第一層分類。  
+    若找不到指定的分類，則回傳空陣列。
     """
 
     with open("data/categories.json", "r", encoding="utf-8") as f:
@@ -113,17 +120,53 @@ async def subcategory(
 
     return list(ret)
 
+########################################################################
 
-@app.get("/channels", summary="所有通路商", response_model=List[str])
+
+class Channels(BaseModel):
+    channels: List[str]
+
+
+@api.get("/channels", tags=["通路商"], summary="取得所有通路商", response_model=Channels)
 async def channels():
     """
-    取得所有通路商
+    取得所有通路商。  
+    不過目前只有全聯福利中心和家樂福。
     """
 
-    return ["全聯", "家樂福"]
+    return {
+        'channels': ["全聯", "家樂福"]
+    }
 
 
-@app.get("/products", tags=["產品"], summary="取得商品列表", response_model=ProductResponse)
+########################################################################
+
+
+class ProductModel(BaseModel):
+    pid: int
+    pno: Optional[str]
+    barcode: Optional[str]
+    name: str
+    price: int
+    spec: float
+    unit: str
+    price_unit: float
+    channel: str
+    category1: str
+    category2: str
+    category3: str
+    url: str
+    pic_url: str
+
+
+class ProductResponse(BaseModel):
+    total_count: int
+    page: int
+    limit: int
+    products: List[ProductModel]
+
+
+@api.get("/products", tags=["產品"], summary="取得商品列表", response_model=ProductResponse)
 async def products(
     category1: Optional[str] = Query(None, description="指定商品的第一層分類"),
     category2: Optional[str] = Query(None, description="指定商品的第二層分類"),
@@ -134,7 +177,9 @@ async def products(
     limit: Optional[int] = Query(10, ge=1, description="每頁顯示幾筆資料"),
 ):
     """
-    取得商品列表
+    根據指定的商品分類、通路商、查詢字串，回傳商品列表。  
+    其中查詢字串會篩選出商品名稱包含該字串的商品。  
+    為了避免資料量過大，預設每次只回傳 10 筆資料。
     """
     # print(category1, category2, category3, page, limit)
 
@@ -163,6 +208,10 @@ async def products(
         "products": products.all(),
     }
 
+
+########################################################################
+
+app.include_router(api, prefix="/api/v1")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=5050)

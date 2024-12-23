@@ -1,6 +1,6 @@
 # PriceScout Backend
 
-超市商品比價網 後端資料庫
+超市商品比價網 後端資料庫 API
 
 ## 簡介
 
@@ -24,14 +24,14 @@
     git clone https://github.com/YuanOwO/pricescout_backend.git
     cd pricescout_backend
     ```
-2.  確認已安裝 Python 3.12 以上版本
+2.  確認已安裝 Python 3.11 以上版本
 3.  安裝相依套件
     ```bash
     pip install -r requirements.txt
     ```
 4.  執行 API 服務
-    預設使用 `port 5050` 啟動服務，可自行調整。
     ```bash
     uvicorn main:app --host 0.0.0.0 --port 5050
     ```
-5.  進入 `http://localhost:5050/api/v1/docs` 即可看到 API 文件
+    預設使用 `port 5050` 啟動服務，可自行調整。
+5.  進入 `http://localhost:5050/docs` 即可看到 API 文件
