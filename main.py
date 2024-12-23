@@ -14,7 +14,7 @@ from database import Product, create_session
 app = FastAPI(
     title="PriceScout API",
     summary="超市商品比價網 後端資料庫 API",
-    version="1.0"
+    version="1.0",
 )
 
 
@@ -43,17 +43,26 @@ async def favicon_ico():
 async def favicon_png():
     return FileResponse("static/favicon.png", media_type="image/png")
 
+
 ########################################################################
 
 
 class HelloWorld(BaseModel):
     message: str = "Hello World"
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"message": "Hello World"},
+            ]
+        }
+    }
+
 
 @api.get("/", summary="Hello World (API 根目錄)", response_model=HelloWorld)
 async def helloworld():
     """
-    這個是 API 的根目錄  
+    這個是 API 的根目錄
     用來測試 API 是否正常運作
     """
     return {"message": "Hello World"}
@@ -64,7 +73,16 @@ async def helloworld():
 
 class Category(BaseModel):
     name: str
-    children: Optional[List['Category']] = None
+    children: Optional[List["Category"]] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"name": "生鮮", "children": [{"name": "蔬菜"}, {"name": "水果"}]},
+                {"name": "油米雜糧"},
+            ]
+        }
+    }
 
 
 class CategoryResponse(BaseModel):
@@ -86,8 +104,8 @@ async def subcategory(
     category3: Optional[str] = Query(None, description="指定商品的第三層分類"),
 ):
     """
-    根據指定的商品分類，回傳他的下一層子分類有哪些。  
-    若沒有指定分類，則回傳所有第一層分類。  
+    根據指定的商品分類，回傳他的下一層子分類有哪些。
+    若沒有指定分類，則回傳所有第一層分類。
     若找不到指定的分類，則回傳空陣列。
     """
 
@@ -123,23 +141,30 @@ async def subcategory(
 
     return ret
 
+
 ########################################################################
 
 
-class Channels(BaseModel):
+class ChannelsResponse(BaseModel):
     channels: List[str]
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"channels": ["全聯", "家樂福"]},
+            ]
+        }
+    }
 
-@api.get("/channels", tags=["通路商"], summary="取得所有通路商", response_model=Channels)
+
+@api.get("/channels", tags=["通路商"], summary="取得所有通路商", response_model=ChannelsResponse)
 async def channels():
     """
-    取得所有通路商。  
+    取得所有通路商。
     不過目前只有全聯福利中心和家樂福。
     """
 
-    return {
-        'channels': ["全聯", "家樂福"]
-    }
+    return {"channels": ["全聯", "家樂福"]}
 
 
 ########################################################################
@@ -161,12 +186,65 @@ class ProductModel(BaseModel):
     url: str
     pic_url: str
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "pid": 1,
+                    "pno": "123456",
+                    "barcode": "1234567890123",
+                    "name": "商品名稱",
+                    "price": 100,
+                    "spec": 100,
+                    "unit": "g",
+                    "price_unit": 1,
+                    "channel": "全聯",
+                    "category1": "生鮮",
+                    "category2": "蔬菜",
+                    "category3": "葉菜類",
+                    "url": "https://www.example.com",
+                    "pic_url": "https://www.example.com/pic.jpg",
+                },
+            ]
+        }
+    }
+
 
 class ProductsResponse(BaseModel):
     total_count: int
-    page: int
-    limit: int
+    page: int = 1
+    limit: int = 10
     products: List[ProductModel]
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "total_count": 1,
+                    "page": 1,
+                    "limit": 10,
+                    "products": [
+                        {
+                            "barcode": "1234567890123",
+                            "category1": "生鮮",
+                            "category2": "蔬菜",
+                            "category3": "葉菜類",
+                            "channel": "全聯",
+                            "name": "商品名稱",
+                            "pic_url": "https://www.example.com/pic.jpg",
+                            "pid": 1,
+                            "pno": "123456",
+                            "price": 100,
+                            "price_unit": 1,
+                            "spec": 100,
+                            "unit": "g",
+                            "url": "https://www.example.com",
+                        }
+                    ],
+                }
+            ]
+        }
+    }
 
 
 @api.get("/products", tags=["產品"], summary="取得商品列表", response_model=ProductsResponse)
@@ -180,8 +258,8 @@ async def products(
     limit: Optional[int] = Query(10, ge=1, description="每頁顯示幾筆資料"),
 ):
     """
-    根據指定的商品分類、通路商、查詢字串，回傳商品列表。  
-    其中查詢字串會篩選出商品名稱包含該字串的商品。  
+    根據指定的商品分類、通路商、查詢字串，回傳商品列表。
+    查詢字串可以用空格分隔多個關鍵字，也可以用 "-" 來排除某個關鍵字。
     為了避免資料量過大，預設每次只回傳 10 筆資料。
     """
     # print(category1, category2, category3, page, limit)
@@ -198,7 +276,12 @@ async def products(
     if channel:
         products = products.filter(Product.channel == channel)
     if query:
-        products = products.filter(Product.name.contains(query))
+        for keyword in query.split():
+            if keyword.startswith("-"):
+                keyword = keyword[1:]
+                products = products.filter(~Product.name.contains(keyword))
+            else:
+                products = products.filter(Product.name.contains(keyword))
 
     total_count = products.count()
     products = products.order_by(Product.price_unit.asc())
