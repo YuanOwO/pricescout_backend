@@ -5,7 +5,7 @@ DB_URL = "sqlite:///./data/product.db"
 
 Base = declarative_base()
 
-engine = create_engine(DB_URL)
+engine = create_engine(DB_URL, pool_size=20, max_overflow=0)
 
 
 class Product(Base):
