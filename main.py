@@ -31,17 +31,17 @@ api = APIRouter()
 
 @app.get("/", include_in_schema=False)
 async def root():
-    return FileResponse("static/index.html")
+    return FileResponse("static/index.html", media_type="text/html")
 
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon_ico():
-    return FileResponse("static/favicon.png")
+    return FileResponse("static/favicon.ico", media_type="image/x-icon")
 
 
 @app.get("/favicon.png", include_in_schema=False)
 async def favicon_png():
-    return FileResponse("static/favicon.png")
+    return FileResponse("static/favicon.png", media_type="image/png")
 
 ########################################################################
 
@@ -64,18 +64,19 @@ async def helloworld():
 
 class Category(BaseModel):
     name: str
-    children: List[Category] = []
+    children: Optional[List['Category']] = None
 
 
-@api.get("/category", tags=["商品分類"], summary="所有商品分類")
+class CategoryResponse(BaseModel):
+    category: List[Category]
+
+
+@api.get("/category", tags=["商品分類"], summary="所有商品分類", response_model=CategoryResponse)
 async def category():
     """
     取得所有商品分類
     """
-    with open("data/categories.json", "r", encoding="utf-8") as f:
-        cats = json.load(f)
-
-    return cats
+    return FileResponse("data/categories.json", media_type="application/json")
 
 
 @api.get("/subcategory", tags=["商品分類"], summary="取得商品子分類", response_model=List[str])
@@ -118,7 +119,9 @@ async def subcategory(
     except KeyError:
         ret = []
 
-    return list(ret)
+    ret = list(ret)
+
+    return ret
 
 ########################################################################
 
@@ -159,14 +162,14 @@ class ProductModel(BaseModel):
     pic_url: str
 
 
-class ProductResponse(BaseModel):
+class ProductsResponse(BaseModel):
     total_count: int
     page: int
     limit: int
     products: List[ProductModel]
 
 
-@api.get("/products", tags=["產品"], summary="取得商品列表", response_model=ProductResponse)
+@api.get("/products", tags=["產品"], summary="取得商品列表", response_model=ProductsResponse)
 async def products(
     category1: Optional[str] = Query(None, description="指定商品的第一層分類"),
     category2: Optional[str] = Query(None, description="指定商品的第二層分類"),
