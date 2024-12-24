@@ -44,11 +44,6 @@ async def favicon_png():
     return FileResponse("static/favicon.png", media_type="image/png")
 
 
-@app.get("/healthz")
-async def healthz():
-    return {"status": "ok"}
-
-
 ########################################################################
 
 
@@ -67,10 +62,18 @@ class HelloWorld(BaseModel):
 @api.get("/", summary="Hello World (API 根目錄)", response_model=HelloWorld)
 async def helloworld():
     """
-    這個是 API 的根目錄
-    用來測試 API 是否正常運作
+    這個是 API 的根目錄，
+    用來測試 API 是否正常運作。
     """
     return {"message": "Hello World"}
+
+
+@api.get("/healthz", summary="健康檢查", response_model=HelloWorld)
+async def healthz():
+    """
+    用來檢查 API 是否正常運作。
+    """
+    return {"message": "alive"}
 
 
 ########################################################################
