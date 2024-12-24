@@ -44,6 +44,11 @@ async def favicon_png():
     return FileResponse("static/favicon.png", media_type="image/png")
 
 
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
+
 ########################################################################
 
 
